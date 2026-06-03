@@ -6,6 +6,11 @@ All notable changes across all fork generations are documented here.
 
 ## [mikopp/hass-template-climate](https://github.com/mikopp/hass-template-climate) — this fork
 
+### 2026-06-03 — Templated min/max temperature bounds
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- **Added:** New `min_temp_template` and `max_temp_template` options, allowing the minimum and maximum temperature set points to be driven by templates at runtime. When set, they override the static `min_temp`/`max_temp` values.
+
 ### 2026-05-30 — Fix: all templated properties freeze after platform reload
 
 - **Author:** [@mikopp](https://github.com/mikopp)
