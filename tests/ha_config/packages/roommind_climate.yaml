@@ -6,14 +6,24 @@
 # max_temp_template), branching hvac_mode_template / hvac_action_template, attributes,
 # and chained climate→climate actions.
 #
-# Two deliberate adaptations of the comment YAML so the actions are observable and
-# don't recurse:
-#   * climate.roommind_badezimmer_override — the target of set_temperature /
-#     set_hvac_mode — is implemented as a small helper-backed climate_template "echo"
-#     entity (instead of a RoomMind device absent in CI), so the chained writes land
-#     in input_number.roommind_override_target / input_select.roommind_override_mode.
-#   * set_preset_mode in the original calls climate.set_preset_mode on the entity
-#     ITSELF (an infinite-recursion bug); here it writes to input_select.roommind_preset.
+# The config below is kept faithful to the comment so the reported bug reproduces.
+# The reported error is:
+#
+#   Entity 'Fußbodenheizung Badezimmer Template' attribute 'preset_mode' returned
+#   invalid value: 'comfort'. Expected one of: '['Aus', 'Boost 5 min', ...]'.
+#
+# Root cause (custom_components/climate_template/climate.py): preset_modes is
+# declared WITHOUT "comfort" and there is no preset_mode_template, so the entity
+# keeps its hardcoded default _attr_preset_mode = DEFAULT_PRESET_MODE = "comfort".
+# It therefore reports a preset_mode that is not among its own preset_modes, and
+# the restore path (async_added_to_hass) logs the error above. This is independent
+# of the set_preset_mode action. See tests/test_roommind_climate.py.
+#
+# One deliberate adaptation of the comment YAML so the chained actions are
+# observable: climate.roommind_badezimmer_override — the target of set_temperature
+# and set_hvac_mode — is implemented as a small helper-backed climate_template
+# "echo" entity (instead of a RoomMind device absent in CI), so the chained writes
+# land in input_number.roommind_override_target / input_select.roommind_override_mode.
 #
 # Seeded by tests/conftest.py: sensor.temperatur_luftfeuchtigkeit_badezimmer_*,
 # sensor.roommind_badezimmer_target_temp, sensor.roommind_badezimmer_mode,
@@ -27,16 +37,6 @@ input_select:
       - auto
       - heat
       - "off"
-  roommind_preset:
-    name: RoomMind preset
-    options:
-      - "Aus"
-      - "Boost 5 min"
-      - "Boost 10 min"
-      - "Boost 15 min"
-      - "Boost 20 min"
-      - "Boost 25 min"
-      - "Boost 30 min"
 
 input_number:
   roommind_override_target:
@@ -145,9 +145,14 @@ climate:
           entity_id: climate.roommind_badezimmer_override
         data:
           hvac_mode: "{{ hvac_mode }}"
+    # Verbatim from PR #134: the original calls climate.set_preset_mode on the
+    # entity ITSELF. The reported preset_mode='comfort' error is independent of
+    # this action (it stems from the default preset_mode never being reconciled
+    # with the configured preset_modes), so this block is left faithful and is
+    # not exercised by the tests.
     set_preset_mode:
-      - action: input_select.select_option
+      - action: climate.set_preset_mode
         target:
-          entity_id: input_select.roommind_preset
+          entity_id: climate.fussbodenheizung_badezimmer_template
         data:
-          option: "{{ preset_mode }}"
+          preset_mode: "{{ preset_mode }}"

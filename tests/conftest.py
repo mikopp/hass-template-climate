@@ -47,7 +47,6 @@ def baseline_inputs(home_assistant: HomeAssistant) -> None:
         "input_select.airflow_swing_mode": "off",
         "input_select.hc1_operating_mode": "comfort",
         "input_select.roommind_override_mode": "auto",
-        "input_select.roommind_preset": "Aus",
     }.items():
         ha.call_action("input_select", "select_option",
                        {"entity_id": entity_id, "option": option})

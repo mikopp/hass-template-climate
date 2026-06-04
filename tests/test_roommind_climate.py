@@ -92,7 +92,36 @@ def test_set_hvac_mode_chains_to_override(home_assistant: HomeAssistant) -> None
     home_assistant.assert_entity_state(OVERRIDE, "heat")
 
 
-def test_set_preset_mode_writes_helper(home_assistant: HomeAssistant) -> None:
-    home_assistant.call_action("climate", "set_preset_mode",
-                               {"entity_id": CLIMATE, "preset_mode": "Boost 10 min"})
-    home_assistant.assert_entity_state("input_select.roommind_preset", "Boost 10 min")
+def test_preset_mode_default_is_invalid(home_assistant: HomeAssistant) -> None:
+    """Reproduces the bug reported in PR #134 (comment 4619227343).
+
+    The entity declares::
+
+        preset_modes: ["Aus", "Boost 5 min", ... , "Boost 30 min"]
+
+    with no preset_mode_template and no way to ever select one of them. The
+    platform initialises ``_attr_preset_mode`` to its hardcoded default
+    ``DEFAULT_PRESET_MODE = "comfort"`` and never reconciles it with the
+    configured ``preset_modes``. The entity therefore reports a preset_mode that
+    is not one of its own preset_modes, and Home Assistant logs::
+
+        Entity 'Fußbodenheizung Badezimmer Template' attribute 'preset_mode'
+        returned invalid value: 'comfort'. Expected one of:
+        '['Aus', 'Boost 5 min', ...]'.
+
+    This test asserts the invariant the integration violates — the reported
+    preset_mode must be one of the declared preset_modes — and so FAILS,
+    reproducing the user's error. It will pass once the platform defaults
+    preset_mode to a valid member of preset_modes (or to None) instead of the
+    fixed "comfort".
+    """
+    state = home_assistant.get_state(CLIMATE)
+    assert state is not None, f"{CLIMATE} not found"
+    attributes = state["attributes"]
+    preset_modes = attributes.get("preset_modes")
+    preset_mode = attributes.get("preset_mode")
+    assert preset_mode in preset_modes, (
+        f"Entity '{CLIMATE}' reported preset_mode {preset_mode!r}, which is not "
+        f"one of its declared preset_modes {preset_modes!r} "
+        f"(PR #134 default-'comfort' bug)"
+    )
