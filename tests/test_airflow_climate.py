@@ -53,7 +53,7 @@ def test_target_temperature_getter(home_assistant: HomeAssistant) -> None:
     home_assistant.call_action("input_number", "set_value", {
         "entity_id": "input_number.airflow_cooling_target_temperature", "value": 23.0})
     home_assistant.assert_entity_state(
-        CLIMATE, "auto", expected_attributes={"target_temperature": 23.0})
+        CLIMATE, "auto", expected_attributes={"temperature": 23.0})
 
 
 def test_target_temperature_range_getter(home_assistant: HomeAssistant) -> None:
@@ -71,7 +71,7 @@ def test_target_humidity_getter(home_assistant: HomeAssistant) -> None:
     home_assistant.call_action("input_number", "set_value", {
         "entity_id": "input_number.airflow_target_humidity", "value": 62})
     home_assistant.assert_entity_state(
-        CLIMATE, expected_attributes={"target_humidity": 62.0})
+        CLIMATE, expected_attributes={"humidity": 62.0})
 
 
 def test_min_max_temp_and_step_getters(home_assistant: HomeAssistant) -> None:

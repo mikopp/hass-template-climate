@@ -33,7 +33,7 @@ def test_getters_and_min_max_templates(home_assistant: HomeAssistant) -> None:
         CLIMATE,
         expected_attributes={
             "current_temperature": 24.1,
-            "target_temperature": 21.5,
+            "temperature": 21.5,
             "min_temp": 5.0,
             "max_temp": 30.0,
         },
@@ -82,7 +82,7 @@ def test_set_temperature_chains_to_override(home_assistant: HomeAssistant) -> No
     home_assistant.assert_entity_state(
         "input_number.roommind_override_target", _approx(22.5))
     home_assistant.assert_entity_state(
-        OVERRIDE, expected_attributes={"target_temperature": 22.5})
+        OVERRIDE, expected_attributes={"temperature": 22.5})
 
 
 def test_set_hvac_mode_chains_to_override(home_assistant: HomeAssistant) -> None:

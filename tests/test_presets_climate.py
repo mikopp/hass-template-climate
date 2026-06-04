@@ -43,7 +43,7 @@ def test_set_preset_mode_applies_target_temperature(home_assistant: HomeAssistan
     home_assistant.assert_entity_state(
         "input_number.hc1_target_temperature", _approx(18.0))
     home_assistant.assert_entity_state(
-        CLIMATE, expected_attributes={"preset_mode": "reduced", "target_temperature": 18.0})
+        CLIMATE, expected_attributes={"preset_mode": "reduced", "temperature": 18.0})
 
 
 def test_set_presets_writes_back_edited_setpoint(home_assistant: HomeAssistant) -> None:
