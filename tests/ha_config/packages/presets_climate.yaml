@@ -1,0 +1,126 @@
+# ── Presets climate test package ─────────────────────────────────────────────
+#
+# Covers the climate_template preset feature set, which the airflow entity does
+# not use: preset_modes, preset_mode_template, set_preset_mode, and the
+# presets_features / presets_template / set_presets trio (the "Heating Circuit"
+# example from the README).
+#
+# presets_features = 35 = EDITABLE(1) + PRESERVED(2) + TARGET_TEMPERATURE(32):
+#   - selecting a preset applies that preset's target_temperature, and
+#   - editing the target temperature while a preset is active writes the new value
+#     back through set_presets.
+# Every value is backed by a real input_* helper so the round-trips are observable.
+
+input_select:
+  hc1_operating_mode:
+    name: HC1 operating mode
+    options:
+      - automatic
+      - comfort
+      - reduced
+      - protection
+
+input_number:
+  hc1_target_temperature:
+    name: HC1 live target temperature
+    min: 10
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+  hc1_comfort_setpoint:
+    name: HC1 comfort setpoint
+    min: 10
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+  hc1_reduced_setpoint:
+    name: HC1 reduced setpoint
+    min: 10
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+  hc1_protection_setpoint:
+    name: HC1 protection setpoint
+    min: 10
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+
+climate:
+  - platform: climate_template
+    name: Heating Circuit 1
+    unique_id: climate_template_heating_hc1
+    mode_action: queued
+    max_action: 3
+
+    hvac_modes:
+      - "heat"
+    hvac_mode_template: "heat"
+
+    preset_modes:
+      - "automatic"
+      - "comfort"
+      - "reduced"
+      - "protection"
+    presets_features: 35
+
+    min_temp: 10
+    max_temp: 30
+    temp_step: 0.5
+
+    current_temperature_template: "{{ states('sensor.hc1_room_temperature') | float(20) }}"
+    target_temperature_template: "{{ states('input_number.hc1_target_temperature') | float }}"
+    preset_mode_template: "{{ states('input_select.hc1_operating_mode') }}"
+    presets_template: >-
+      {{ {
+        'automatic':  { 'target_temperature': states('input_number.hc1_comfort_setpoint') | float },
+        'comfort':    { 'target_temperature': states('input_number.hc1_comfort_setpoint') | float },
+        'reduced':    { 'target_temperature': states('input_number.hc1_reduced_setpoint') | float },
+        'protection': { 'target_temperature': states('input_number.hc1_protection_setpoint') | float }
+      } }}
+
+    set_temperature:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.hc1_target_temperature
+        data:
+          value: "{{ temperature }}"
+
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.hc1_operating_mode
+        data:
+          option: "{{ preset_mode }}"
+
+    # Fired when a preset attribute is edited while EDITABLE is enabled. `changed`
+    # holds only the presets whose values changed; write each new comfort/reduced/
+    # protection target back to its backing helper.
+    set_presets:
+      - if:
+          - condition: template
+            value_template: "{{ 'comfort' in changed and 'target_temperature' in changed.comfort }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hc1_comfort_setpoint
+            data:
+              value: "{{ changed.comfort.target_temperature }}"
+      - if:
+          - condition: template
+            value_template: "{{ 'reduced' in changed and 'target_temperature' in changed.reduced }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hc1_reduced_setpoint
+            data:
+              value: "{{ changed.reduced.target_temperature }}"
+      - if:
+          - condition: template
+            value_template: "{{ 'protection' in changed and 'target_temperature' in changed.protection }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hc1_protection_setpoint
+            data:
+              value: "{{ changed.protection.target_temperature }}"

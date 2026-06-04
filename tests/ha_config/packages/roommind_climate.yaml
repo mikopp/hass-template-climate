@@ -1,0 +1,153 @@
+# ── RoomMind climate test package ────────────────────────────────────────────
+#
+# Real-world second test case: the "Fußbodenheizung Badezimmer" climate_template
+# entity from jcwillox/hass-template-climate PR #134 (comment 4619227343). It
+# exercises the DEPRECATED config aliases (availability_template, min_temp_template /
+# max_temp_template), branching hvac_mode_template / hvac_action_template, attributes,
+# and chained climate→climate actions.
+#
+# Two deliberate adaptations of the comment YAML so the actions are observable and
+# don't recurse:
+#   * climate.roommind_badezimmer_override — the target of set_temperature /
+#     set_hvac_mode — is implemented as a small helper-backed climate_template "echo"
+#     entity (instead of a RoomMind device absent in CI), so the chained writes land
+#     in input_number.roommind_override_target / input_select.roommind_override_mode.
+#   * set_preset_mode in the original calls climate.set_preset_mode on the entity
+#     ITSELF (an infinite-recursion bug); here it writes to input_select.roommind_preset.
+#
+# Seeded by tests/conftest.py: sensor.temperatur_luftfeuchtigkeit_badezimmer_*,
+# sensor.roommind_badezimmer_target_temp, sensor.roommind_badezimmer_mode,
+# climate.fussbodenheizung_badezimmer_local (with min_temp/max_temp attributes),
+# binary_sensor.fenster_badezimmer_contact, switch.roommind_badezimmer_cover_auto.
+
+input_select:
+  roommind_override_mode:
+    name: RoomMind override mode
+    options:
+      - auto
+      - heat
+      - "off"
+  roommind_preset:
+    name: RoomMind preset
+    options:
+      - "Aus"
+      - "Boost 5 min"
+      - "Boost 10 min"
+      - "Boost 15 min"
+      - "Boost 20 min"
+      - "Boost 25 min"
+      - "Boost 30 min"
+
+input_number:
+  roommind_override_target:
+    name: RoomMind override target
+    min: 5
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+
+climate:
+  # ── Observable stub for the RoomMind override device ──────────────────────
+  - platform: climate_template
+    name: RoomMind Badezimmer Override
+    unique_id: roommind_badezimmer_override
+    hvac_modes:
+      - "auto"
+      - "heat"
+      - "off"
+    min_temp: 5
+    max_temp: 30
+    temp_step: 0.5
+    hvac_mode_template: "{{ states('input_select.roommind_override_mode') }}"
+    target_temperature_template: "{{ states('input_number.roommind_override_target') | float }}"
+    set_temperature:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.roommind_override_target
+        data:
+          value: "{{ temperature }}"
+    set_hvac_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.roommind_override_mode
+        data:
+          option: "{{ hvac_mode }}"
+
+  # ── The PR #134 entity under test ─────────────────────────────────────────
+  - platform: climate_template
+    name: "Fußbodenheizung Badezimmer Template"
+    unique_id: "fussbodenheizung_badezimmer_template"
+    attributes:
+      override_state: >-
+        {% if states('climate.roommind_badezimmer_override') == 'auto' %}
+          Manuell
+        {% else %}
+          Auto
+        {% endif %}
+      window_open: >-
+        {% if is_state('binary_sensor.fenster_badezimmer_contact', 'on') %}
+          open
+        {% else %}
+          closed
+        {% endif %}
+      cover_automatic: >-
+        {% if is_state('switch.roommind_badezimmer_cover_auto', 'on') %}
+          on
+        {% else %}
+          off
+        {% endif %}
+    availability_template: >-
+      {{ states('climate.fussbodenheizung_badezimmer_local') != 'unavailable' }}
+    hvac_modes:
+      - "heat"
+      - "off"
+      - "auto"
+    preset_modes:
+      - "Aus"
+      - "Boost 5 min"
+      - "Boost 10 min"
+      - "Boost 15 min"
+      - "Boost 20 min"
+      - "Boost 25 min"
+      - "Boost 30 min"
+    min_temp_template: >-
+      {{ state_attr('climate.fussbodenheizung_badezimmer_local', 'min_temp') }}
+    max_temp_template: >-
+      {{ state_attr('climate.fussbodenheizung_badezimmer_local', 'max_temp') }}
+    temp_step: 0.5
+    precision: 0.1
+    current_temperature_template: >-
+      {{ states('sensor.temperatur_luftfeuchtigkeit_badezimmer_temperature') }}
+    current_humidity_template: >-
+      {{ states('sensor.temperatur_luftfeuchtigkeit_badezimmer_humidity') }}
+    target_temperature_template: >-
+      {{ states('sensor.roommind_badezimmer_target_temp') }}
+    set_temperature:
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.roommind_badezimmer_override
+        data:
+          temperature: "{{ temperature | float }}"
+          hvac_mode: "auto"
+    hvac_mode_template: >-
+      {% if is_state('climate.roommind_badezimmer_override', 'auto') %}
+        auto
+      {% elif is_state('climate.roommind_badezimmer_override', 'off') and is_state('sensor.roommind_badezimmer_mode', 'heating') %}
+        heat
+      {% elif is_state('climate.roommind_badezimmer_override', 'off') and is_state('sensor.roommind_badezimmer_mode', 'idle') %}
+        off
+      {% endif %}
+    hvac_action_template: >-
+      {{ states('sensor.roommind_badezimmer_mode') }}
+    set_hvac_mode:
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.roommind_badezimmer_override
+        data:
+          hvac_mode: "{{ hvac_mode }}"
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.roommind_preset
+        data:
+          option: "{{ preset_mode }}"
