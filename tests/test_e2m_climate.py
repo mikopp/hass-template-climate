@@ -38,4 +38,4 @@ def test_set_temperature_derives_from_self_attribute(
         expected_attributes={"temperature": 21.5},
     )
     home_assistant.assert_entity_state("input_number.e2m_setpoint_temp", "21.5")
-    home_assistant.assert_entity_state("input_number.e2m_setpoint_raw", "137")
+    home_assistant.assert_entity_state("input_number.e2m_setpoint_raw", "137.0")
