@@ -40,6 +40,9 @@ def baseline_inputs(home_assistant: HomeAssistant) -> None:
         "input_number.hc1_protection_setpoint": 8.0,
         # RoomMind package
         "input_number.roommind_override_target": 21.0,
+        # E2M package
+        "input_number.e2m_setpoint_raw": 0,
+        "input_number.e2m_setpoint_temp": 8.0,
     }.items():
         ha.call_action(
             "input_number", "set_value", {"entity_id": entity_id, "value": value}
