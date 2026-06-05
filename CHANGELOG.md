@@ -6,6 +6,14 @@ All notable changes across all fork generations are documented here.
 
 ## [mikopp/hass-template-climate](https://github.com/mikopp/hass-template-climate) — this fork
 
+### 2026-06-05 — Integration test suite against a real Home Assistant
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- **Added:** End-to-end test suite that boots a real Home Assistant Docker container via the `ha_integration_test_harness` pytest plugin and drives the `climate_template` platform through its public service API. Runs in CI across a version matrix (HA `2025.9.0` minimum and `stable`).
+- **Added:** Test packages covering real-world configurations: an airflow-cooling entity exercising every getter/setter capability, the PR #134 "Fußbodenheizung Badezimmer" RoomMind entity (deprecated `availability_template`/`min_temp_template`/`max_temp_template`, branching `hvac_mode_template`, chained climate→climate actions), a mode-initialization matrix, and an E2M Fußbodenheizung entity whose `set_temperature` action reads the entity's **own** freshly-committed `temperature` attribute — pinning the ordering contract that the attribute is written to state before the action script runs.
+- **Fixed:** Fan/swing/preset default-value reconciliation so an entity never reports a mode outside its own configured list.
+- **Fixed:** Reproduced and documented the PR #134 `preset_mode: 'comfort'` invalid-value bug under test (the default preset is never reconciled with the configured `preset_modes`).
+
 ### 2026-06-03 — Templated min/max temperature bounds
 
 - **Author:** [@mikopp](https://github.com/mikopp)
