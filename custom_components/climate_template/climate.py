@@ -99,6 +99,8 @@ CONF_HUMIDITY_MAX = "max_humidity"
 CONF_PRECISION = "precision"
 CONF_TEMP_STEP = "temp_step"
 CONF_TEMP_STEP_TEMPLATE = "temp_step_template"
+CONF_TEMPERATURE_MIN_TEMPLATE = "min_temp_template"
+CONF_TEMPERATURE_MAX_TEMPLATE = "max_temp_template"
 CONF_MODE_ACTION = "mode_action"
 CONF_MAX_ACTION = "max_action"
 CONF_PRESETS_FEATURES = "presets_features"
@@ -189,6 +191,8 @@ PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_SWING_MODE_TEMPLATE): cv.template,
         vol.Optional(CONF_HVAC_ACTION_TEMPLATE): cv.template,
         vol.Optional(CONF_TEMP_STEP_TEMPLATE): cv.template,
+        vol.Optional(CONF_TEMPERATURE_MIN_TEMPLATE): cv.template,
+        vol.Optional(CONF_TEMPERATURE_MAX_TEMPLATE): cv.template,
         vol.Optional(CONF_PRESETS_TEMPLATE): cv.template,
         vol.Optional(CONF_SET_TEMPERATURE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_SET_HUMIDITY_ACTION): cv.SCRIPT_SCHEMA,
@@ -381,6 +385,8 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
         self._template_target_humidity = config.get(CONF_TARGET_HUMIDITY_TEMPLATE)
         self._template_presets = config.get(CONF_PRESETS_TEMPLATE)
         self._template_temp_step = config.get(CONF_TEMP_STEP_TEMPLATE)
+        self._template_min_temp = config.get(CONF_TEMPERATURE_MIN_TEMPLATE)
+        self._template_max_temp = config.get(CONF_TEMPERATURE_MAX_TEMPLATE)
 
         self._action_hvac_mode = config.get(CONF_SET_HVAC_MODE_ACTION)
         self._action_preset_mode = config.get(CONF_SET_PRESET_MODE_ACTION)
@@ -468,6 +474,16 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 )
                 self._presets = {}
 
+        # Reconcile the initial preset_mode with the configured preset_modes.
+        # The hardcoded default (DEFAULT_PRESET_MODE = "comfort") is only a valid
+        # value when "comfort" is one of the configured preset_modes. Otherwise the
+        # entity would report — and on restart try to restore — a preset_mode that
+        # is not an allowed value, which Home Assistant rejects with
+        # "attribute 'preset_mode' returned invalid value: 'comfort'". Fall back to
+        # no preset (None) when the default is not a configured preset_mode.
+        if self._attr_preset_mode not in self._attr_preset_modes:
+            self._attr_preset_mode = None
+
         if self._attr_fan_modes and len(self._attr_fan_modes) >= 2:
             self._attr_supported_features |= ClimateEntityFeature.FAN_MODE
             if not (
@@ -529,6 +545,21 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                     self._attr_name,
                 )
                 self._presets_features ^= ClimateEntityPresetFeature.SWING_MODE
+
+        # Note: hvac_mode is intentionally NOT reconciled here. It is the climate
+        # entity's state and the hardcoded DEFAULT_HVAC_MODE is HVACMode.OFF, so
+        # the only way for the default to be "invalid" is for hvac_modes to omit
+        # OFF — but such an entity is rejected by Home Assistant anyway, because
+        # the TURN_ON/TURN_OFF features are only enabled when OFF is configured.
+
+        if self._attr_fan_modes and self._attr_fan_mode not in self._attr_fan_modes:
+            self._attr_fan_mode = None
+
+        if (
+            self._attr_swing_modes
+            and self._attr_swing_mode not in self._attr_swing_modes
+        ):
+            self._attr_swing_mode = None
 
         if HVACMode.HEAT_COOL in self._attr_hvac_modes:
             if (
@@ -1007,6 +1038,24 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 self._template_temp_step,
                 None,
                 self._update_temp_step,
+                none_on_template_error=True,
+            )
+
+        if self._template_min_temp:
+            self.add_template_attribute(
+                "_attr_min_temp",
+                self._template_min_temp,
+                None,
+                self._update_min_temp,
+                none_on_template_error=True,
+            )
+
+        if self._template_max_temp:
+            self.add_template_attribute(
+                "_attr_max_temp",
+                self._template_max_temp,
+                None,
+                self._update_max_temp,
                 none_on_template_error=True,
             )
 
@@ -1494,6 +1543,44 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                     "Entity '%s' attribute 'temp_step' could not parse value: '%s'. Expected a number.",
                     self._attr_name,
                     temp_step,
+                )
+            self.async_write_ha_state()
+
+    @callback
+    def _update_min_temp(self, min_temp):
+        _LOGGER.debug(
+            "Entity '%s' template '%s' triggered with attribute value: '%s'.",
+            self._attr_name,
+            CONF_TEMPERATURE_MIN_TEMPLATE,
+            min_temp,
+        )
+        if min_temp not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            try:
+                self._attr_min_temp = float(min_temp)
+            except (ValueError, TypeError):
+                _LOGGER.error(
+                    "Entity '%s' attribute 'min_temp' could not parse value: '%s'. Expected a number.",
+                    self._attr_name,
+                    min_temp,
+                )
+            self.async_write_ha_state()
+
+    @callback
+    def _update_max_temp(self, max_temp):
+        _LOGGER.debug(
+            "Entity '%s' template '%s' triggered with attribute value: '%s'.",
+            self._attr_name,
+            CONF_TEMPERATURE_MAX_TEMPLATE,
+            max_temp,
+        )
+        if max_temp not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            try:
+                self._attr_max_temp = float(max_temp)
+            except (ValueError, TypeError):
+                _LOGGER.error(
+                    "Entity '%s' attribute 'max_temp' could not parse value: '%s'. Expected a number.",
+                    self._attr_name,
+                    max_temp,
                 )
             self.async_write_ha_state()
 

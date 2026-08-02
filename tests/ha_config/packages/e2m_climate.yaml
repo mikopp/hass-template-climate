@@ -1,0 +1,47 @@
+# ── E2M thermostat test package ───────────────────────────────────────────────
+#
+# Reproduces the set_temperature action pattern from real-world E2M Fußbodenheizung
+# entities, where the action script reads the entity's OWN freshly-set temperature
+# attribute (state_attr(self, 'temperature')) rather than the {{ temperature }}
+# script variable. This tests the integration's ordering contract:
+#   _async_set_attribute commits the attribute (climate.py:1625) and calls
+#   async_write_ha_state() (climate.py:1650) BEFORE running the action script
+#   (climate.py:1652). If that order were reversed, the action would derive
+#   values from the stale default rather than the requested temperature.
+
+input_number:
+  e2m_setpoint_raw:
+    name: E2M setpoint raw
+    min: 0
+    max: 9999
+    step: 1
+  e2m_setpoint_temp:
+    name: E2M setpoint temp
+    min: 0
+    max: 50
+    step: 0.1
+    unit_of_measurement: "°C"
+
+climate:
+  - platform: climate_template
+    name: "E2M Test Template"
+    unique_id: e2m_test_template
+    hvac_modes:
+      - "heat"
+      - "off"
+    min_temp: 8
+    max_temp: 30
+    temp_step: 0.5
+    precision: 0.1
+    # No target_temperature_template: temperature is driven by set_temperature calls only
+    set_temperature:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.e2m_setpoint_raw
+        data:
+          value: "{{ ((state_attr('climate.e2m_test_template', 'temperature')|float(0)) * 6.375)|round|int }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.e2m_setpoint_temp
+        data:
+          value: "{{ state_attr('climate.e2m_test_template', 'temperature')|float() }}"

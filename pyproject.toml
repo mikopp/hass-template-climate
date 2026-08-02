@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+# HOME_ASSISTANT_CONFIG_ROOT must point at tests/ha_config so the harness finds
+# configuration.yaml. The test workflow sets it; to run locally:
+#   export HOME_ASSISTANT_CONFIG_ROOT="$(pwd)/tests/ha_config"
+#   pytest tests/ -v
+addopts = "-v"
+testpaths = ["tests"]

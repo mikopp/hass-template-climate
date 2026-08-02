@@ -1,0 +1,109 @@
+name: "Integration tests"
+
+# Boots a real Home Assistant container (via the ha_integration_test_harness pytest
+# plugin) and runs the climate_template scenario suite under tests/ against it.
+# Mirrors the harness-based approach used in mikopp/homeassistent-config.
+
+on:
+  push:
+    branches:
+      - "main"
+      - "feat**"
+      - "claude/**"
+    tags-ignore:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: "HA ${{ matrix.ha_label }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # hacs.json "homeassistant" minimum supported version.
+          - ha_label: "2025.9.0 (min)"
+            ha_image_tag: "2025.9.0"
+          # Latest published stable release.
+          - ha_label: "stable (latest)"
+            ha_image_tag: "stable"
+
+    env:
+      # The harness boots HA with this directory mounted as /config.
+      HOME_ASSISTANT_CONFIG_ROOT: ${{ github.workspace }}/tests/ha_config
+
+    steps:
+      - name: "Checkout the repository"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Install test dependencies"
+        run: pip install -r requirements_test.txt
+
+      # The harness's bundled docker-compose always launches the
+      # homeassistant/home-assistant:stable image. Pull the version under test and
+      # re-tag it as :stable so the matrix selects the HA version (no env override
+      # for the image tag exists in the harness compose file).
+      - name: "Pull Home Assistant image (${{ matrix.ha_image_tag }})"
+        run: |
+          docker pull "homeassistant/home-assistant:${{ matrix.ha_image_tag }}"
+          docker tag "homeassistant/home-assistant:${{ matrix.ha_image_tag }}" \
+            "homeassistant/home-assistant:stable"
+
+      # The harness mounts the config root as /config, so the custom integration
+      # under test must live underneath it. The mount cannot follow a symlink out of
+      # the tree, so copy the component in (tests/ha_config/custom_components is
+      # git-ignored).
+      - name: "Stage the integration under test"
+        run: |
+          mkdir -p tests/ha_config/custom_components
+          cp -r custom_components/climate_template \
+            tests/ha_config/custom_components/climate_template
+
+      - name: "Home Assistant config check"
+        run: |
+          output=$(docker run --rm \
+            -v "${HOME_ASSISTANT_CONFIG_ROOT}:/config" \
+            homeassistant/home-assistant:stable \
+            python -m homeassistant --config /config --script check_config 2>&1)
+          echo "$output"
+          if echo "$output" | grep -qE "Failed config|Invalid config"; then
+            echo "::error::Home Assistant reported configuration errors (see above)"
+            exit 1
+          fi
+
+      - name: "Run integration tests"
+        id: run_tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pytest tests/ -v 2>&1 | tee /tmp/pytest_output.txt
+
+      - name: "Write test results to job summary"
+        if: always()
+        run: |
+          {
+            echo "## climate_template integration tests — HA ${{ matrix.ha_label }}"
+            echo ""
+            if [ -f /tmp/pytest_output.txt ]; then
+              echo '```'
+              cat /tmp/pytest_output.txt
+              echo '```'
+            else
+              echo "No pytest output produced (container or setup failure — see step logs)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Fail if tests failed"
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1
