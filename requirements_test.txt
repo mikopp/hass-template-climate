@@ -1,1 +1,3 @@
+# Unit tests (tests/). The Docker-based integration suite has its own
+# requirements in tests/integration/requirements.txt.
 pytest-homeassistant-custom-component

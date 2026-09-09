@@ -1,0 +1,7 @@
+# Test-only dependencies for the integration test suite (tests/integration/).
+# Requires Python >= 3.12 and a running Docker daemon. Install these in their own environment, not
+# together with requirements_test.txt (see tests/integration/pytest.ini).
+pyyaml
+requests
+pytest-github-actions-annotate-failures
+git+https://github.com/HeadlessTarry/HomeAssistant-Test-Harness.git
