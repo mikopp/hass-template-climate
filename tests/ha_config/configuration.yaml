@@ -1,0 +1,29 @@
+# Minimal Home Assistant configuration used only by the integration test suite.
+#
+# The ha_integration_test_harness pytest plugin boots a real Home Assistant
+# container with this directory mounted as /config (see HOME_ASSISTANT_CONFIG_ROOT
+# in .github/workflows/test-integration.yaml). The climate_template custom
+# integration under test is copied into ./custom_components/ by the workflow
+# before the container starts.
+#
+# default_config provides the REST/WebSocket APIs, onboarding endpoints and the
+# input_* helper integrations the harness and the test packages rely on. The
+# climate_template platform pulls in the `template` integration automatically via
+# its manifest "dependencies", so it does not need to be listed here.
+
+default_config:
+
+homeassistant:
+  # Deterministic location/timezone so the sun integration and the harness
+  # time_machine fixture behave consistently across CI runs.
+  latitude: 48.3069
+  longitude: 14.2858
+  elevation: 266
+  time_zone: Europe/Vienna
+  # Each climate_template test scenario lives in its own package file.
+  packages: !include_dir_named packages
+
+logger:
+  default: warning
+  logs:
+    custom_components.climate_template: debug

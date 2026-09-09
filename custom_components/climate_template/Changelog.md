@@ -4,6 +4,13 @@ All notable changes across all fork generations are hopefully documented here.
 
 ---
 
+### 2026-09-09 — Add integration test suite against a real Home Assistant
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Added `tests/`: a pytest suite that boots a real Home Assistant container (via the [`HomeAssistant-Test-Harness`](https://github.com/HeadlessTarry/HomeAssistant-Test-Harness) pytest plugin) and exercises five `climate_template` scenarios end-to-end over its REST/WebSocket API — airflow control, a preset-profile boiler setup, an "E2M" self-attribute-read case, a fan/swing/preset mode-init matrix, and a multi-room ("RoomMind") setup. Added `.github/workflows/test-integration.yaml`, running the suite as a matrix against the `hacs.json` minimum-supported HA version and the latest stable release on every push and pull request.
+- The `mode_init` suite reproduces the `preset_mode`/`fan_mode`/`swing_mode` invalid-default-value bug fixed separately in this changelog's "Fix invalid default preset/fan/swing mode on entity startup" entry — it fails against unpatched `climate.py` and passes with that fix applied.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)
