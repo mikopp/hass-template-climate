@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout the repository"
-        uses: actions/checkout@v2
+        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e  # v2
 
       - name: "Check format"
-        uses: psf/black@stable
+        uses: psf/black@87928e6d6761a4a6d22250e1fee5601b3998086e  # stable

@@ -17,20 +17,20 @@ jobs:
     name: "Hassfest"
     steps:
       - name: "Checkout the repository"
-        uses: actions/checkout@v2
+        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e  # v2
 
       - name: "Validate Hassfest"
-        uses: home-assistant/actions/hassfest@master
+        uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb  # master
 
   validate-hacs:
     runs-on: ubuntu-latest
     name: "HACS"
     steps:
       - name: "Checkout the repository"
-        uses: actions/checkout@v2
+        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e  # v2
 
       - name: "Validate HACS"
-        uses: hacs/action@main
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main
         with:
           category: integration
           ignore: brands

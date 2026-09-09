@@ -4,6 +4,12 @@ All notable changes across all fork generations are hopefully documented here.
 
 ---
 
+### 2026-09-09 — Pin GitHub Actions to commit SHAs
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Pinned `actions/checkout`, `psf/black`, `home-assistant/actions/hassfest`, and `hacs/action` in the CI/release/validate workflows to their current commit SHA (each ref's own comment preserved), and added `.github/dependabot.yml` to bump those SHAs weekly. Reduces exposure to a compromised or rewritten tag/branch on any of these actions.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)
