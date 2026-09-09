@@ -1,5 +1,5 @@
 # Test-only dependencies for the integration test suite (tests/).
-# Requires Python >= 3.12 and a running Docker daemon.
+# Requires Python >= 3.14.2 (per ha-integration-test-harness) and a running Docker daemon.
 pyyaml
 requests
 pytest-github-actions-annotate-failures
