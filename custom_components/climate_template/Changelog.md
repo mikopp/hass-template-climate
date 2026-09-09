@@ -4,6 +4,12 @@ All notable changes across all fork generations are hopefully documented here.
 
 ---
 
+### 2026-09-09 — Document `attributes`, `variables`, and deprecated keys
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Documented the existing `attributes` and `variables` config options in the configuration table, with worked examples. Added a "Deprecated Keys" section listing the legacy template-entity keys (`availability_template`, `icon_template`, `entity_picture_template`, `friendly_name`, `value_template`) that are rewritten automatically, and the removed `entity_id` option.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)

@@ -87,6 +87,8 @@ All configuration variables are optional. If you do not define a `template` or i
 | ------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | name                                 | `string`                                                                  | The name of the climate device.                                                                                                                                                                                                                                                                 | "Template Climate"                      |
 | unique_id                            | `string`                                                                  | The [unique id](https://developers.home-assistant.io/docs/entity_registry_index/#unique-id) of the climate entity.                                                                                                                                                                              | None                                    |
+| attributes                           | `dict`                                                                    | Dictionary of `name: template` pairs defining extra state attributes to expose on the entity. Each value is rendered as a template. See [example](#example-extra-state-attributes).                                                                                                          |                                         |
+| variables                            | `dict`                                                                    | Additional variables available in all action scripts (e.g. `set_hvac_mode`). See [example](#example-variables-in-actions).                                                                                                                                                                      |                                         |
 | mode_action                          | `string`                                                                  | Possible values: `parallel`, `queued`, `restart`, `single`. For explanation, see the [`script`](https://www.home-assistant.io/integrations/script/#script-modes) documentation.                                                                                                                | single                                  |
 | max_action                           | `positive_int`                                                            | Limits the number of concurrent runs of actions. Used together with `parallel` and `queued` `mode_action`, set to a positive number greater than 1. For explanation, see the [`script`](https://www.home-assistant.io/integrations/script/#max) documentation.                                  | 1                                       |
 | presets_features                     | `positive_int`                                                            | Define the feature flags supported by the `preset_mode` feature as bit flags. See [example](#presets_features) for options. Default value `0` means presets are disabled.                                                                                                                       | 0                                       |
@@ -228,6 +230,21 @@ climate:
 > [!WARNING]
 > **Known limitation:** Home Assistant preloads an integration's `translations/<lang>.json` in the background *before* this integration's own startup code runs, so there is a narrow window where Home Assistant can read the file before it has been regenerated for the current configuration. Once loaded, translations are cached in memory for the rest of that Home Assistant session and are not re-read even after we finish rewriting the file. In practice this only becomes visible right after the on-disk file was reset to a stale/placeholder state just before that particular restart (for example, immediately after updating this integration via HACS, which reinstalls the file shipped in the release). When it happens, entity/preset/state text falls back to the raw, untranslated value for that session only — icons are unaffected, since they are loaded on demand rather than preloaded at startup. **Restarting Home Assistant a second time resolves it**, since the file already holds the correct, current content by then.
 
+## Deprecated Keys
+
+The following config keys still work but log a deprecation warning naming the
+affected entity and the migration target. They are automatically rewritten to
+their replacement on load.
+
+| Deprecated Key            | Replacement    | Notes                                                      |
+| -------------------------- | -------------- | ----------------------------------------------------------- |
+| `availability_template`   | `availability` | HA template-entity standard key. Rewritten automatically.   |
+| `icon_template`           | `icon`         | HA template-entity standard key. Rewritten automatically.   |
+| `entity_picture_template` | `picture`      | HA template-entity standard key. Rewritten automatically.   |
+| `friendly_name`           | `name`         | HA template-entity standard key. Rewritten automatically.   |
+| `value_template`          | `state`        | HA template-entity standard key. Rewritten automatically.   |
+| `entity_id`               | *(removed)*    | No longer used; remove it from the configuration.           |
+
 ## Example Configuration
 
 ```yaml
@@ -273,6 +290,35 @@ climate:
           light: "{{ is_state('light.bedroom_aircon_light', 'on') }}"
 
       # could also send IR command via broadlink service calls etc.
+```
+
+### Example: extra state attributes
+
+```yaml
+climate:
+  - platform: climate_template
+    name: Airflow Controller
+    hvac_modes:
+      - "off"
+      - "cool"
+    attributes:
+      outdoor_temp: "{{ states('sensor.outdoor_temp') | float(none) }}"
+      indoor_dew: "{{ states('sensor.indoor_dew') | float(none) }}"
+      free_cooling_available: "{{ is_state('binary_sensor.free_cooling_available', 'on') }}"
+```
+
+### Example: variables in actions
+
+```yaml
+climate:
+  - platform: climate_template
+    name: My Climate
+    variables:
+      device_id: "my_esphome_device"
+    set_hvac_mode:
+      - service: esphome.{{ device_id }}_set_mode
+        data:
+          mode: "{{ hvac_mode }}"
 ```
 
 ### Example action to control existing Home Assistant devices
