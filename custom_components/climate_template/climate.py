@@ -240,9 +240,12 @@ PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_SET_PRESET_MODE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_SET_SWING_MODE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_SET_PRESETS_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(
-            CONF_HVAC_MODE_LIST, default=DEFAULT_HVAC_MODE_LIST
-        ): cv.ensure_list,
+        # Deprecated: renamed to hvac_modes (see rewrite_legacy_to_modern_config).
+        # No default here (unlike the other mode lists) so the rewrite can tell
+        # whether the user actually configured hvac_modes before it applies
+        # DEFAULT_HVAC_MODE_LIST itself.
+        vol.Optional("modes"): cv.ensure_list,
+        vol.Optional(CONF_HVAC_MODE_LIST): cv.ensure_list,
         vol.Optional(
             CONF_PRESET_MODE_LIST, default=DEFAULT_PRESET_MODE_LIST
         ): cv.ensure_list,
@@ -329,6 +332,19 @@ def rewrite_legacy_to_modern_config(
             ATTR_ENTITY_ID,
         )
         entity_cfg.pop(ATTR_ENTITY_ID, None)
+
+    # Map deprecated 'modes' (jcwillox-era config) to 'hvac_modes'.
+    if "modes" in entity_cfg and CONF_HVAC_MODE_LIST not in entity_cfg:
+        _LOGGER.warning(
+            "Entity '%s' uses legacy configuration option '%s'; migrate to '%s'.",
+            entity_name,
+            "modes",
+            CONF_HVAC_MODE_LIST,
+        )
+        entity_cfg[CONF_HVAC_MODE_LIST] = entity_cfg.pop("modes")
+    else:
+        entity_cfg.pop("modes", None)
+    entity_cfg.setdefault(CONF_HVAC_MODE_LIST, DEFAULT_HVAC_MODE_LIST)
 
     for from_key, to_key in LEGACY_FIELDS.items():
         if from_key not in entity_cfg or to_key in entity_cfg:
