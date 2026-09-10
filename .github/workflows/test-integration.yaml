@@ -27,8 +27,8 @@ jobs:
       matrix:
         include:
           # hacs.json "homeassistant" minimum supported version.
-          - ha_label: "2025.9.0 (min)"
-            ha_image_tag: "2025.9.0"
+          - ha_label: "2026.9.0 (min)"
+            ha_image_tag: "2026.9.0"
           # Latest published stable release.
           - ha_label: "stable (latest)"
             ha_image_tag: "stable"
