@@ -8,3 +8,7 @@ __pycache__/
 /custom_components/climate_template/icons.json
 /custom_components/climate_template/translations/*.json
 !/custom_components/climate_template/translations/en.json
+
+# Test-only virtualenvs and pytest cache (tests/)
+.pytest_cache/
+/.venv/

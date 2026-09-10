@@ -240,9 +240,12 @@ PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_SET_PRESET_MODE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_SET_SWING_MODE_ACTION): cv.SCRIPT_SCHEMA,
         vol.Optional(CONF_SET_PRESETS_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(
-            CONF_HVAC_MODE_LIST, default=DEFAULT_HVAC_MODE_LIST
-        ): cv.ensure_list,
+        # Deprecated: renamed to hvac_modes (see rewrite_legacy_to_modern_config).
+        # No default here (unlike the other mode lists) so the rewrite can tell
+        # whether the user actually configured hvac_modes before it applies
+        # DEFAULT_HVAC_MODE_LIST itself.
+        vol.Optional("modes"): cv.ensure_list,
+        vol.Optional(CONF_HVAC_MODE_LIST): cv.ensure_list,
         vol.Optional(
             CONF_PRESET_MODE_LIST, default=DEFAULT_PRESET_MODE_LIST
         ): cv.ensure_list,
@@ -330,6 +333,19 @@ def rewrite_legacy_to_modern_config(
         )
         entity_cfg.pop(ATTR_ENTITY_ID, None)
 
+    # Map deprecated 'modes' (jcwillox-era config) to 'hvac_modes'.
+    if "modes" in entity_cfg and CONF_HVAC_MODE_LIST not in entity_cfg:
+        _LOGGER.warning(
+            "Entity '%s' uses legacy configuration option '%s'; migrate to '%s'.",
+            entity_name,
+            "modes",
+            CONF_HVAC_MODE_LIST,
+        )
+        entity_cfg[CONF_HVAC_MODE_LIST] = entity_cfg.pop("modes")
+    else:
+        entity_cfg.pop("modes", None)
+    entity_cfg.setdefault(CONF_HVAC_MODE_LIST, DEFAULT_HVAC_MODE_LIST)
+
     for from_key, to_key in LEGACY_FIELDS.items():
         if from_key not in entity_cfg or to_key in entity_cfg:
             continue
@@ -402,7 +418,6 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
         super().__init__(hass, config, unique_id)
         self._config = config
 
-        self._attr_name: str = config.get(CONF_FRIENDLY_NAME) or "Template Climate"
         self._attr_translation_key = derive_translation_key(config)
         self._attr_supported_features = ClimateEntityFeature(0)
         self._attr_temperature_unit = hass.config.units.temperature_unit
@@ -543,6 +558,16 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 )
                 self._presets = {}
 
+        # Reconcile the initial preset_mode with the configured preset_modes.
+        # The hardcoded default (DEFAULT_PRESET_MODE = "comfort") is only a valid
+        # value when "comfort" is one of the configured preset_modes. Otherwise the
+        # entity would report -- and on restart try to restore -- a preset_mode
+        # that is not an allowed value, which Home Assistant rejects with
+        # "attribute 'preset_mode' returned invalid value: 'comfort'". Fall back
+        # to no preset (None) when the default is not a configured preset_mode.
+        if self._attr_preset_mode not in self._attr_preset_modes:
+            self._attr_preset_mode = None
+
         if self._attr_fan_modes and len(self._attr_fan_modes) >= 2:
             self._attr_supported_features |= ClimateEntityFeature.FAN_MODE
             if not (
@@ -604,6 +629,21 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                     self._attr_name,
                 )
                 self._presets_features ^= ClimateEntityPresetFeature.SWING_MODE
+
+        # Note: hvac_mode is intentionally NOT reconciled here. It is the climate
+        # entity's state and the hardcoded DEFAULT_HVAC_MODE is HVACMode.OFF, so
+        # the only way for the default to be "invalid" is for hvac_modes to omit
+        # OFF -- but such an entity is rejected by Home Assistant anyway, because
+        # the TURN_ON/TURN_OFF features are only enabled when OFF is configured.
+
+        if self._attr_fan_modes and self._attr_fan_mode not in self._attr_fan_modes:
+            self._attr_fan_mode = None
+
+        if (
+            self._attr_swing_modes
+            and self._attr_swing_mode not in self._attr_swing_modes
+        ):
+            self._attr_swing_mode = None
 
         if HVACMode.HEAT_COOL in self._attr_hvac_modes:
             if (
@@ -1219,6 +1259,23 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                         self._attr_min_temp,
                     )
                     return None
+            elif format == "min_max_temperature":
+                # Used by min_temp_template/max_temp_template: these define the
+                # allowed range itself, so (unlike "target_temperature") the new
+                # value must NOT be bound-checked against self._attr_min_temp /
+                # self._attr_max_temp -- doing so would compare the incoming
+                # min_temp/max_temp against its own stale value and reject any
+                # change that widens the range.
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    _LOGGER.error(
+                        "Entity '%s' attribute '%s' returned invalid value: '%s'. Expected integer or float.",
+                        self._attr_name,
+                        attr,
+                        value,
+                    )
+                    return None
             elif format == "current_humidity":
                 try:
                     value = round(value)
@@ -1257,6 +1314,21 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                         attr,
                         value,
                         self._attr_min_humidity,
+                    )
+                    return None
+            elif format == "min_max_humidity":
+                # Used by min_humidity_template/max_humidity_template: same
+                # reasoning as "min_max_temperature" above -- these define the
+                # allowed range itself and must not be bound-checked against
+                # self._attr_min_humidity / self._attr_max_humidity.
+                try:
+                    value = round(value)
+                except (TypeError, ValueError):
+                    _LOGGER.error(
+                        "Entity '%s' attribute '%s' returned invalid value: '%s'. Expected integer of float.",
+                        self._attr_name,
+                        attr,
+                        value,
                     )
                     return None
             elif format == "precision":
@@ -1638,7 +1710,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             min_temp,
         )
         if (
-            value := self._validate_value("min_temp", min_temp, "target_temperature")
+            value := self._validate_value("min_temp", min_temp, "min_max_temperature")
         ) is not None:
             self._attr_min_temp = value
             self.async_write_ha_state()
@@ -1652,7 +1724,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             max_temp,
         )
         if (
-            value := self._validate_value("max_temp", max_temp, "target_temperature")
+            value := self._validate_value("max_temp", max_temp, "min_max_temperature")
         ) is not None:
             self._attr_max_temp = value
             self.async_write_ha_state()
@@ -1667,7 +1739,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
         )
         if (
             value := self._validate_value(
-                "min_humidity", min_humidity, "target_humidity"
+                "min_humidity", min_humidity, "min_max_humidity"
             )
         ) is not None:
             self._attr_min_humidity = value
@@ -1683,7 +1755,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
         )
         if (
             value := self._validate_value(
-                "max_humidity", max_humidity, "target_humidity"
+                "max_humidity", max_humidity, "min_max_humidity"
             )
         ) is not None:
             self._attr_max_humidity = value
