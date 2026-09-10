@@ -13,7 +13,9 @@ This is a fork of the original repository jcwillox/hass-template-climate, which 
 
 ## Breaking changes from jcwillox versions
 
-- Config parameter `modes` renamed to `hvac_modes`
+- Config parameter `modes` renamed to `hvac_modes`. The old `modes` key still
+  works (with a startup deprecation warning naming the affected entity) and
+  is automatically mapped to `hvac_modes` on load.
 - `hvac_modes` list is set only to `["off", "heat"]` by default.
 - `preset_modes`, `fan_modes` and `swing_modes` are now not set by default and shall be configured **only** if being used and set to the used miminum list of modes.
 

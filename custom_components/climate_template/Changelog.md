@@ -16,6 +16,12 @@ All notable changes across all fork generations are hopefully documented here.
 - Documented the existing `attributes` and `variables` config options in the configuration table, with worked examples. Added a "Deprecated Keys" section listing the legacy template-entity keys (`availability_template`, `icon_template`, `entity_picture_template`, `friendly_name`, `value_template`) that are rewritten automatically, and the removed `entity_id` option.
 
 
+### 2026-09-09 — Deprecated `modes` alias for `hvac_modes`
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Restored back-compat for the jcwillox-era `modes` config key: it is now accepted again and automatically rewritten to `hvac_modes` on load, alongside the other legacy keys in `rewrite_legacy_to_modern_config()`, with the same startup deprecation warning naming the affected entity.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)
