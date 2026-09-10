@@ -32,7 +32,6 @@ All notable changes across all fork generations are hopefully documented here.
 
 - **Author:** [@mikopp](https://github.com/mikopp)
 - `TemplateClimate.__init__` set `self._attr_name` from the legacy `friendly_name` config key, overriding the name `TemplateEntity`'s base `__init__` had already correctly resolved from `name` (`CONF_NAME`) a few lines earlier. Since `rewrite_legacy_to_modern_config()` already rewrites `friendly_name` to `name` before the entity is constructed, `config.get(CONF_FRIENDLY_NAME)` is always `None` by this point — so every entity, regardless of its configured `name`, silently fell back to the hardcoded default `"Template Climate"`. On a fresh install this also means colliding `entity_id`s (`climate.template_climate`, `climate.template_climate_2`, ...), since Home Assistant slugs the initial `entity_id` from the display name. Removed the overriding line; `TemplateEntity.__init__` already handles both static and templated `name` correctly on its own.
-- **Note:** this fix is tracked by its own separate PR/branch (`feat/fix-name-override`); it's carried here too only so the integration test suite below can actually run.
 
 
 ### 2026-09-09 — Add integration test suite against a real Home Assistant
