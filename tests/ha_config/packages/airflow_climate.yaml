@@ -267,3 +267,20 @@ climate:
                   entity_id: input_select.comfoconnect_pro_temperature_profile
                 data:
                   option: cool
+
+  # ── Secondary entity: single-sided max_temp_template only ─────────────────
+  # Regression coverage for the min/max validation fix (climate.py
+  # _update_min_temp/_update_max_temp): min_temp/max_temp used to be
+  # bound-checked against themselves, so a template-driven value could only
+  # ever narrow the range from its initial default, never widen it. This
+  # entity has no min_temp_template at all -- min_temp is static -- to prove
+  # max_temp_template works fully on its own and doesn't require a
+  # corresponding min_temp_template to also be configured.
+  - platform: climate_template
+    name: Airflow Max Only
+    unique_id: airflow_max_only
+    hvac_modes:
+      - "off"
+      - "cool"
+    min_temp: 10
+    max_temp_template: "{{ states('input_number.airflow_max_temp') | float(26) }}"
