@@ -16,6 +16,7 @@ import pytest
 from ha_integration_test_harness import HomeAssistant
 
 CLIMATE = "climate.airflow_climate"
+MAX_ONLY_CLIMATE = "climate.airflow_max_only"
 
 TEMP_ATTRS = {"unit_of_measurement": "°C", "device_class": "temperature"}
 HUM_ATTRS = {"unit_of_measurement": "%", "device_class": "humidity"}
@@ -121,6 +122,29 @@ def test_min_max_temp_and_step_getters(home_assistant: HomeAssistant) -> None:
             "min_temp": 15.0,
             "max_temp": 27.0,
             "target_temp_step": 0.5,
+        },
+    )
+
+
+def test_max_only_template_independent_of_min(home_assistant: HomeAssistant) -> None:
+    """max_temp_template alone (no min_temp_template) must update on its own.
+
+    Regression coverage for the min/max validation fix: min_temp/max_temp used
+    to be bound-checked against themselves, so a template-driven value could
+    only narrow the range from its initial default, never widen it. This
+    entity has no min_temp_template at all -- only a static min_temp -- to
+    prove the two are fully independent and neither requires the other.
+    """
+    home_assistant.call_action(
+        "input_number",
+        "set_value",
+        {"entity_id": "input_number.airflow_max_temp", "value": 32.0},
+    )
+    home_assistant.assert_entity_state(
+        MAX_ONLY_CLIMATE,
+        expected_attributes={
+            "min_temp": 10.0,
+            "max_temp": 32.0,
         },
     )
 
