@@ -1,0 +1,266 @@
+# ── Mode initialisation test package ─────────────────────────────────────────
+#
+# Covers the three-way configuration matrix for each climate mode property
+# (hvac_mode, fan_mode, swing_mode, preset_mode):
+#
+#   Scenario 1 — static only: mode list declared, no template.
+#     1a. default IS in the modes list  → entity reports the hardcoded default.
+#     1b. default NOT in the modes list → entity reconciles to None (the fix
+#         for "attribute returned invalid value: 'comfort'" and equivalents).
+#
+#   Scenario 2 — template only: a template drives the current mode value.
+#
+#   Scenario 3 — static + template: both present; entity initialises from the
+#     static default then the template overrides it once it evaluates.
+#
+# Every entity targets input_select helpers so all writes are observable.
+# Seeded by tests/conftest.py baseline_inputs to deterministic values before
+# each test.
+
+input_select:
+  mode_init_hvac_source:
+    name: Mode init hvac source
+    options:
+      - "off"
+      - heat
+      - auto
+
+  mode_init_fan_source:
+    name: Mode init fan source
+    options:
+      - high
+      - medium
+      - low
+
+  mode_init_swing_source:
+    name: Mode init swing source
+    options:
+      - "off"
+      - horizontal
+      - vertical
+
+  mode_init_preset_source:
+    name: Mode init preset source
+    options:
+      - eco
+      - comfort
+      - boost
+
+climate:
+
+  # ── hvac_mode ───────────────────────────────────────────────────────────────
+  # DEFAULT_HVAC_MODE = HVACMode.OFF = "off"
+
+  # 1a. Static only — "off" IS in hvac_modes.
+  - platform: climate_template
+    name: "Mode Init HvacMode Static Valid"
+    unique_id: mode_init_hvacmode_static_valid
+    hvac_modes: ["off", heat, auto]
+    # No hvac_mode_template → initial hvac_mode: "off"
+
+  # (No "static invalid" hvac_mode entity: DEFAULT_HVAC_MODE is OFF, so omitting
+  # OFF is the only way to make the default invalid — but HA rejects such an
+  # entity because the TURN_ON/TURN_OFF features are only enabled when OFF is
+  # configured. hvac_mode is the entity state and cannot be None.)
+
+  # 2. Template only.
+  - platform: climate_template
+    name: "Mode Init HvacMode Template"
+    unique_id: mode_init_hvacmode_template
+    hvac_modes: ["off", heat, auto]
+    hvac_mode_template: "{{ states('input_select.mode_init_hvac_source') }}"
+    set_hvac_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_hvac_source
+        data:
+          option: "{{ hvac_mode }}"
+
+  # 3. Static + template — "off" is a valid static default; template overrides it.
+  - platform: climate_template
+    name: "Mode Init HvacMode Static And Template"
+    unique_id: mode_init_hvacmode_static_and_template
+    hvac_modes: ["off", heat, auto]
+    hvac_mode_template: "{{ states('input_select.mode_init_hvac_source') }}"
+    set_hvac_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_hvac_source
+        data:
+          option: "{{ hvac_mode }}"
+
+  # ── fan_mode ────────────────────────────────────────────────────────────────
+  # DEFAULT_FAN_MODE = FAN_LOW = "low"
+  # The FAN_MODE feature flag requires either set_fan_mode or fan_mode_template;
+  # without one of those the platform clears the modes list and disables the
+  # feature. All static-only entities therefore include a set_fan_mode action.
+
+  # 1a. Static only — "low" IS in fan_modes.
+  - platform: climate_template
+    name: "Mode Init FanMode Static Valid"
+    unique_id: mode_init_fanmode_static_valid
+    hvac_modes: ["off", heat]
+    fan_modes: [high, medium, low]
+    set_fan_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_fan_source
+        data:
+          option: "{{ fan_mode }}"
+
+  # 1b. Static only — "low" NOT in fan_modes.
+  - platform: climate_template
+    name: "Mode Init FanMode Static Invalid"
+    unique_id: mode_init_fanmode_static_invalid
+    hvac_modes: ["off", heat]
+    fan_modes: [high, medium]
+    set_fan_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_fan_source
+        data:
+          option: "{{ fan_mode }}"
+
+  # 2. Template only.
+  - platform: climate_template
+    name: "Mode Init FanMode Template"
+    unique_id: mode_init_fanmode_template
+    hvac_modes: ["off", heat]
+    fan_modes: [high, medium, low]
+    fan_mode_template: "{{ states('input_select.mode_init_fan_source') }}"
+    set_fan_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_fan_source
+        data:
+          option: "{{ fan_mode }}"
+
+  # 3. Static + template — "low" is a valid static default; template overrides it.
+  - platform: climate_template
+    name: "Mode Init FanMode Static And Template"
+    unique_id: mode_init_fanmode_static_and_template
+    hvac_modes: ["off", heat]
+    fan_modes: [high, medium, low]
+    fan_mode_template: "{{ states('input_select.mode_init_fan_source') }}"
+    set_fan_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_fan_source
+        data:
+          option: "{{ fan_mode }}"
+
+  # ── swing_mode ──────────────────────────────────────────────────────────────
+  # DEFAULT_SWING_MODE = SWING_OFF = "off"
+  # Same feature-flag requirement as fan_mode.
+
+  # 1a. Static only — "off" IS in swing_modes.
+  - platform: climate_template
+    name: "Mode Init SwingMode Static Valid"
+    unique_id: mode_init_swingmode_static_valid
+    hvac_modes: ["off", heat]
+    swing_modes: ["off", horizontal, vertical]
+    set_swing_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_swing_source
+        data:
+          option: "{{ swing_mode }}"
+
+  # 1b. Static only — "off" NOT in swing_modes.
+  - platform: climate_template
+    name: "Mode Init SwingMode Static Invalid"
+    unique_id: mode_init_swingmode_static_invalid
+    hvac_modes: ["off", heat]
+    swing_modes: [horizontal, vertical]
+    set_swing_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_swing_source
+        data:
+          option: "{{ swing_mode }}"
+
+  # 2. Template only.
+  - platform: climate_template
+    name: "Mode Init SwingMode Template"
+    unique_id: mode_init_swingmode_template
+    hvac_modes: ["off", heat]
+    swing_modes: ["off", horizontal, vertical]
+    swing_mode_template: "{{ states('input_select.mode_init_swing_source') }}"
+    set_swing_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_swing_source
+        data:
+          option: "{{ swing_mode }}"
+
+  # 3. Static + template — "off" is a valid static default; template overrides it.
+  - platform: climate_template
+    name: "Mode Init SwingMode Static And Template"
+    unique_id: mode_init_swingmode_static_and_template
+    hvac_modes: ["off", heat]
+    swing_modes: ["off", horizontal, vertical]
+    swing_mode_template: "{{ states('input_select.mode_init_swing_source') }}"
+    set_swing_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_swing_source
+        data:
+          option: "{{ swing_mode }}"
+
+  # ── preset_mode ─────────────────────────────────────────────────────────────
+  # DEFAULT_PRESET_MODE = PRESET_COMFORT = "comfort"
+  # Same feature-flag requirement as fan_mode / swing_mode.
+
+  # 1a. Static only — "comfort" IS in preset_modes.
+  - platform: climate_template
+    name: "Mode Init PresetMode Static Valid"
+    unique_id: mode_init_presetmode_static_valid
+    hvac_modes: ["off", heat]
+    preset_modes: [eco, comfort, boost]
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_preset_source
+        data:
+          option: "{{ preset_mode }}"
+
+  # 1b. Static only — "comfort" NOT in preset_modes.
+  - platform: climate_template
+    name: "Mode Init PresetMode Static Invalid"
+    unique_id: mode_init_presetmode_static_invalid
+    hvac_modes: ["off", heat]
+    preset_modes: [eco, away, boost]
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_preset_source
+        data:
+          option: "{{ preset_mode }}"
+
+  # 2. Template only.
+  - platform: climate_template
+    name: "Mode Init PresetMode Template"
+    unique_id: mode_init_presetmode_template
+    hvac_modes: ["off", heat]
+    preset_modes: [eco, comfort, boost]
+    preset_mode_template: "{{ states('input_select.mode_init_preset_source') }}"
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_preset_source
+        data:
+          option: "{{ preset_mode }}"
+
+  # 3. Static + template — "comfort" is a valid static default; template overrides it.
+  - platform: climate_template
+    name: "Mode Init PresetMode Static And Template"
+    unique_id: mode_init_presetmode_static_and_template
+    hvac_modes: ["off", heat]
+    preset_modes: [eco, comfort, boost]
+    preset_mode_template: "{{ states('input_select.mode_init_preset_source') }}"
+    set_preset_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.mode_init_preset_source
+        data:
+          option: "{{ preset_mode }}"

@@ -1,0 +1,14 @@
+# The integration under test is copied in by the test workflow (and when running
+# locally) — it is not committed here.
+/custom_components/
+
+# Home Assistant runtime artefacts created when the container boots.
+/.storage/
+/home-assistant.log*
+/home-assistant_v2.db*
+/.HA_VERSION
+/automations.yaml
+/deps/
+/tts/
+/.cloud/
+__pycache__/

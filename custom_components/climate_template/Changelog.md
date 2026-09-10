@@ -28,6 +28,20 @@ All notable changes across all fork generations are hopefully documented here.
 - Pinned `actions/checkout`, `psf/black`, `home-assistant/actions/hassfest`, and `hacs/action` in the CI/release/validate workflows to their current commit SHA (each ref's own comment preserved), and added `.github/dependabot.yml` to bump those SHAs weekly. Reduces exposure to a compromised or rewritten tag/branch on any of these actions.
 
 
+### 2026-09-09 — Fix every entity's name collapsing to "Template Climate"
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- `TemplateClimate.__init__` set `self._attr_name` from the legacy `friendly_name` config key, overriding the name `TemplateEntity`'s base `__init__` had already correctly resolved from `name` (`CONF_NAME`) a few lines earlier. Since `rewrite_legacy_to_modern_config()` already rewrites `friendly_name` to `name` before the entity is constructed, `config.get(CONF_FRIENDLY_NAME)` is always `None` by this point — so every entity, regardless of its configured `name`, silently fell back to the hardcoded default `"Template Climate"`. On a fresh install this also means colliding `entity_id`s (`climate.template_climate`, `climate.template_climate_2`, ...), since Home Assistant slugs the initial `entity_id` from the display name. Removed the overriding line; `TemplateEntity.__init__` already handles both static and templated `name` correctly on its own.
+- **Note:** this fix is tracked by its own separate PR/branch (`feat/fix-name-override`); it's carried here too only so the integration test suite below can actually run.
+
+
+### 2026-09-09 — Add integration test suite against a real Home Assistant
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Added `tests/`: a pytest suite that boots a real Home Assistant container (via the [`HomeAssistant-Test-Harness`](https://github.com/HeadlessTarry/HomeAssistant-Test-Harness) pytest plugin) and exercises five `climate_template` scenarios end-to-end over its REST/WebSocket API — airflow control, a preset-profile boiler setup, an "E2M" self-attribute-read case, a fan/swing/preset mode-init matrix, and a multi-room ("RoomMind") setup. Added `.github/workflows/test-integration.yaml`, running the suite as a matrix against the `hacs.json` minimum-supported HA version and the latest stable release on every push and pull request.
+- The `mode_init` suite reproduces the `preset_mode`/`fan_mode`/`swing_mode` invalid-default-value bug fixed separately in this changelog's "Fix invalid default preset/fan/swing mode on entity startup" entry — it fails against unpatched `climate.py` and passes with that fix applied.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)

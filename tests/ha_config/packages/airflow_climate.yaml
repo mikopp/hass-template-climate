@@ -1,0 +1,269 @@
+# ── Airflow climate test package ─────────────────────────────────────────────
+#
+# Based on the "Airflow Climate" entity from the homeassistent-config repository
+# (packages/airflow_cooling.yaml). The surrounding automation, filter sensors and
+# dew-point/bypass math have been stripped — only the climate_template entity and
+# the helpers it reads/writes remain.
+#
+# The entity has then been EXTENDED so that this single package exercises every
+# configurable option, getter template and setter/action of the climate_template
+# platform. Crucially, every action writes to a real input_* helper defined below
+# (rather than the absent ComfoConnect integration used in production), so each
+# setter produces an observable state change the tests can assert end-to-end.
+#
+# Read-only source sensors (sensor.airflow_*_5min, the free-cooling / flush
+# binary_sensors and the boost switch) have no integration in CI; tests/conftest.py
+# seeds them via the REST API before each test.
+
+input_boolean:
+  airflow_cooling_automatic_enabled:
+    name: Airflow automatic enabled
+
+input_number:
+  airflow_cooling_target_temperature:
+    name: Airflow target temperature
+    min: 18
+    max: 26
+    step: 0.5
+    unit_of_measurement: "°C"
+  airflow_cooling_target_temp_low:
+    name: Airflow target temperature low
+    min: 18
+    max: 26
+    step: 0.5
+    unit_of_measurement: "°C"
+  airflow_cooling_target_temp_high:
+    name: Airflow target temperature high
+    min: 18
+    max: 26
+    step: 0.5
+    unit_of_measurement: "°C"
+  airflow_target_humidity:
+    name: Airflow target humidity
+    min: 30
+    max: 70
+    step: 1
+    unit_of_measurement: "%"
+  # Backs the dynamic temp_step / min_temp / max_temp templates.
+  airflow_temp_step:
+    name: Airflow temperature step
+    min: 0.1
+    max: 1
+    step: 0.1
+  airflow_min_temp:
+    name: Airflow minimum temperature
+    min: 7
+    max: 18
+    step: 0.5
+    unit_of_measurement: "°C"
+  airflow_max_temp:
+    name: Airflow maximum temperature
+    min: 26
+    max: 35
+    step: 0.5
+    unit_of_measurement: "°C"
+
+input_select:
+  # Replaces select.comfoconnect_pro_temperature_profile (absent in CI) with a real
+  # helper so set_hvac_mode writes are observable.
+  comfoconnect_pro_temperature_profile:
+    name: ComfoConnect temperature profile
+    options:
+      - warm
+      - comfort
+      - cool
+  airflow_fan_mode:
+    name: Airflow fan mode
+    options:
+      - auto
+      - low
+      - medium
+      - high
+  airflow_swing_mode:
+    name: Airflow swing mode
+    options:
+      - "off"
+      - vertical
+      - horizontal
+      - both
+
+climate:
+  # ── Primary entity: full getter/setter/action coverage ────────────────────
+  - platform: climate_template
+    name: Airflow Climate
+    unique_id: airflow_climate
+
+    # Common template-entity options.
+    icon_template: >-
+      {% if is_state('input_boolean.airflow_cooling_automatic_enabled', 'on') %}
+        mdi:fan-auto
+      {% else %}
+        mdi:fan
+      {% endif %}
+    availability_template: >-
+      {{ states('sensor.airflow_avg_indoor_temp_5min') not in ['unknown', 'unavailable'] }}
+    attributes:
+      outdoor_dew: "{{ states('sensor.airflow_outdoor_dew_5min') | float(none) }}"
+      outdoor_temp: "{{ states('sensor.airflow_outdoor_temp_5min') | float(none) }}"
+      free_cooling_available: "{{ is_state('binary_sensor.airflow_free_cooling_available', 'on') }}"
+
+    # ── Getters ──────────────────────────────────────────────────────────────
+    current_temperature_template: "{{ states('sensor.airflow_avg_indoor_temp_5min') | float(20) }}"
+    current_humidity_template: "{{ states('sensor.airflow_avg_indoor_humidity_5min') | float(50) }}"
+    target_temperature_template: "{{ states('input_number.airflow_cooling_target_temperature') | float }}"
+    target_temperature_low_template: "{{ states('input_number.airflow_cooling_target_temp_low') | float }}"
+    target_temperature_high_template: "{{ states('input_number.airflow_cooling_target_temp_high') | float }}"
+    target_humidity_template: "{{ states('input_number.airflow_target_humidity') | float }}"
+    min_temp_template: "{{ states('input_number.airflow_min_temp') | float(18) }}"
+    max_temp_template: "{{ states('input_number.airflow_max_temp') | float(26) }}"
+    temp_step_template: "{{ states('input_number.airflow_temp_step') | float(0.5) }}"
+    fan_mode_template: "{{ states('input_select.airflow_fan_mode') }}"
+    swing_mode_template: "{{ states('input_select.airflow_swing_mode') }}"
+    hvac_mode_template: >-
+      {% if is_state('input_boolean.airflow_cooling_automatic_enabled', 'on') %}
+        auto
+      {% elif is_state('input_select.comfoconnect_pro_temperature_profile', 'warm') %}
+        heat
+      {% elif is_state('input_select.comfoconnect_pro_temperature_profile', 'comfort') %}
+        heat_cool
+      {% elif is_state('input_select.comfoconnect_pro_temperature_profile', 'cool') %}
+        cool
+      {% else %}
+        off
+      {% endif %}
+    hvac_action_template: >-
+      {% set profile = states('input_select.comfoconnect_pro_temperature_profile') %}
+      {% set free_cool = is_state('binary_sensor.airflow_free_cooling_available', 'on') %}
+      {% set boost_on = is_state('switch.comfoconnect_pro_boost', 'on') %}
+      {% set flush_needed = is_state('binary_sensor.airflow_humidity_flush_needed', 'on') %}
+      {% if free_cool and boost_on %}
+        drying
+      {% elif profile == 'cool' and flush_needed %}
+        drying
+      {% elif profile == 'cool' %}
+        cooling
+      {% elif profile == 'warm' %}
+        heating
+      {% elif profile == 'comfort' %}
+        fan
+      {% else %}
+        idle
+      {% endif %}
+
+    # ── Static bounds / behaviour flags ───────────────────────────────────────
+    min_temp: 18
+    max_temp: 26
+    min_humidity: 30
+    max_humidity: 70
+    temp_step: 0.5
+    precision: 0.1
+    mode_action: queued
+    max_action: 3
+
+    # ── Mode lists ────────────────────────────────────────────────────────────
+    hvac_modes:
+      - "off"
+      - "heat"
+      - "heat_cool"
+      - "cool"
+      - "auto"
+    fan_modes:
+      - auto
+      - low
+      - medium
+      - high
+    swing_modes:
+      - "off"
+      - vertical
+      - horizontal
+      - both
+
+    # ── Actions (each writes to an observable helper) ─────────────────────────
+    set_temperature:
+      - choose:
+          # Single-setpoint modes (heat/cool/auto) send `temperature`.
+          - conditions: "{{ temperature is defined }}"
+            sequence:
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.airflow_cooling_target_temperature
+                data:
+                  value: "{{ temperature }}"
+          # heat_cool sends a low/high range.
+          - conditions: "{{ target_temp_low is defined and target_temp_high is defined }}"
+            sequence:
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.airflow_cooling_target_temp_low
+                data:
+                  value: "{{ target_temp_low }}"
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.airflow_cooling_target_temp_high
+                data:
+                  value: "{{ target_temp_high }}"
+    set_humidity:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.airflow_target_humidity
+        data:
+          value: "{{ humidity }}"
+    set_fan_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.airflow_fan_mode
+        data:
+          option: "{{ fan_mode }}"
+    set_swing_mode:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.airflow_swing_mode
+        data:
+          option: "{{ swing_mode }}"
+    set_hvac_mode:
+      - choose:
+          - conditions: "{{ hvac_mode == 'auto' }}"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.airflow_cooling_automatic_enabled
+          - conditions: "{{ hvac_mode == 'off' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.airflow_cooling_automatic_enabled
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.comfoconnect_pro_temperature_profile
+                data:
+                  option: comfort
+          - conditions: "{{ hvac_mode == 'heat' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.airflow_cooling_automatic_enabled
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.comfoconnect_pro_temperature_profile
+                data:
+                  option: warm
+          - conditions: "{{ hvac_mode == 'heat_cool' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.airflow_cooling_automatic_enabled
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.comfoconnect_pro_temperature_profile
+                data:
+                  option: comfort
+          - conditions: "{{ hvac_mode == 'cool' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.airflow_cooling_automatic_enabled
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.comfoconnect_pro_temperature_profile
+                data:
+                  option: cool
