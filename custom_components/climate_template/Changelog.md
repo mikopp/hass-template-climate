@@ -10,6 +10,12 @@ All notable changes across all fork generations are hopefully documented here.
 - `preset_mode`, `fan_mode`, and `swing_mode` were initialised to hardcoded defaults (`"comfort"`, `"low"`, `"off"`) without checking them against the configured `preset_modes`/`fan_modes`/`swing_modes` lists. When a configured list omitted the default, Home Assistant rejected the entity's state with `attribute 'X' returned invalid value`, and restoring it after a restart failed the same way. Each attribute now falls back to `None` when its hardcoded default isn't one of the configured values. `hvac_mode` is intentionally not reconciled: it is the entity's state, its default is always `HVACMode.OFF`, and Home Assistant already requires `off` in `hvac_modes`.
 
 
+### 2026-09-09 — Document `attributes`, `variables`, and deprecated keys
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Documented the existing `attributes` and `variables` config options in the configuration table, with worked examples. Added a "Deprecated Keys" section listing the legacy template-entity keys (`availability_template`, `icon_template`, `entity_picture_template`, `friendly_name`, `value_template`) that are rewritten automatically, and the removed `entity_id` option.
+
+
 ### 2026-09-03 — Document translations startup race limitation
 
 - **Author:** [@litinoveweedle](https://github.com/litinoveweedle)
