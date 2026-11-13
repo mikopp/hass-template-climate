@@ -770,7 +770,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_hvac_mode = Script(
                 hass,
                 self._action_hvac_mode,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -780,7 +780,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_preset_mode = Script(
                 hass,
                 self._action_preset_mode,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -790,7 +790,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_fan_mode = Script(
                 hass,
                 self._action_fan_mode,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -800,7 +800,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_swing_mode = Script(
                 hass,
                 self._action_swing_mode,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -810,7 +810,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_temperature = Script(
                 hass,
                 self._action_temperature,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -820,7 +820,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_humidity = Script(
                 hass,
                 self._action_humidity,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -830,7 +830,7 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
             self._script_presets = Script(
                 hass,
                 self._action_presets,
-                self._attr_name,
+                self._attr_name or DEFAULT_NAME,
                 DOMAIN,
                 script_mode=self._attr_mode_action,
                 max_runs=self._attr_max_action,
@@ -838,7 +838,8 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
 
     async def async_added_to_hass(self):
         """Run when entity about to be added."""
-        await super().async_added_to_hass()
+        # Restore state and register all climate templates BEFORE the parent
+        # builds its tracker (it starts immediately when HA is already running).
 
         # Check if we have an previous stored state and use it as default state.
         previous_state = await self.async_get_last_state()
@@ -1145,13 +1146,9 @@ class TemplateClimate(TemplateEntity, ClimateEntity, RestoreEntity):
                 none_on_template_error=True,
             )
 
-        # Template attributes are registered dynamically here, after the
-        # parent async_added_to_hass has already run.
-        # Explicitly start template tracking so callbacks are evaluated and
-        # entity state/attributes stay updated.
-        async_setup_templates = getattr(self, "_async_setup_templates", None)
-        if callable(async_setup_templates):
-            async_setup_templates()
+        # Parent registers its own templates and starts tracking, now that
+        # all climate templates are known.
+        await super().async_added_to_hass()
 
         _LOGGER.debug(
             "Entity '%s' successfully registered to homeassistant.",
