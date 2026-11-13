@@ -11,6 +11,14 @@ All notable changes across all fork generations are hopefully documented here.
 - Added a `pytest-homeassistant-custom-component` test suite (`tests/`, run with `pytest`, dependencies in `requirements_test.txt`) covering initial render, cold start, reload while running, repeated reloads, listener cleanup, changed templates on reload, `homeassistant.update_entity`, and restored state (including a restored `0` temperature).
 
 
+### 2026-09-10 — Add integration test suite against a real Home Assistant
+
+- **Author:** [@mikopp](https://github.com/mikopp)
+- Added `tests/integration/`: a pytest suite that boots a real Home Assistant container (via the [`HomeAssistant-Test-Harness`](https://github.com/HeadlessTarry/HomeAssistant-Test-Harness) pytest plugin) and exercises five `climate_template` scenarios end-to-end over its REST/WebSocket API — airflow control (including a single-sided `max_temp_template` case), a preset-profile boiler setup, an "E2M" self-attribute-read case, a fan/swing/preset mode-init matrix, and a multi-room ("RoomMind") setup. Added `.github/workflows/test-integration.yaml`, running the suite as a matrix against the `hacs.json` minimum-supported HA version and the latest stable release on every push and pull request.
+- The suite has its own `pytest.ini` and `requirements.txt` in `tests/integration/` and needs Docker; a plain `pytest` from the repository root ignores it and only runs the unit tests in `tests/`.
+- The `mode_init` suite reproduces the `preset_mode`/`fan_mode`/`swing_mode` invalid-default-value bug fixed in this changelog's "Fix invalid default preset/fan/swing mode on startup" entry — it fails against `climate.py` without that fix and passes with it.
+
+
 ### 2026-09-10 — Fix min_temp_template/max_temp_template (and humidity) unable to widen the range
 
 - **Author:** [@mikopp](https://github.com/mikopp)
